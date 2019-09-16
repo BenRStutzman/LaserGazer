@@ -1,6 +1,7 @@
 import requests
 import urllib.request
 import time
+import socket
 
 bodies = {
     ##"mercury": 1,
@@ -76,8 +77,8 @@ def get_data(body_name = "", form = 2, ID = "AA", task = 9, body = -14,
         try:
             response = requests.get(url)
             #print("Successful connection")
-            time.sleep(1)
-        except ConnectionError or NewConnectionError:
+            #time.sleep(1)
+        except socket.gaierror:
             print("Connection failed for body %d on attempt %d" % (body, attempt))
         attempt += 1
     #time.sleep(1)
@@ -88,7 +89,7 @@ def get_data(body_name = "", form = 2, ID = "AA", task = 9, body = -14,
     start_loc = page.find(str(year))
     end_loc = page.find("</pre>")
     chart = page[start_loc:end_loc]
-    print(chart)
+    #print(chart)
     lines = [line.split() for line in chart.splitlines()]
 
     data = {}
@@ -131,13 +132,14 @@ def get_all_data(time_name = "", place_name = "", form = 2, ID = "AA", task = 9,
     print("Getting celestial locations from our friend the Navy...\n")
     time.sleep(1)
     for body_name, body in bodies.items():
-        print(body_name, end = ":\n")
+        print("\n" + body_name[0].upper() + body_name[1:] + ":")
         data = get_data("", 2, "AA", 9, body,
                    year, month, day, hr, minute, sec, intv_mag, intv_unit, reps,
                    place, lon_sign, lon_deg, lon_min, lon_sec, lat_sign, lat_deg,
                    lat_min, lat_sec, height)
-        #print(data)
+        print(data[(year, month, day, hr, minute)])
         for tm, coords in data.items():
+            #print(coords)
             if tm in all_data:
                 all_data[tm][body] = coords
             else:
@@ -146,24 +148,30 @@ def get_all_data(time_name = "", place_name = "", form = 2, ID = "AA", task = 9,
 
 def write_to_file(all_data, file_name = "stardata.txt"):    
     file = open("stardata.txt", "w")
-    line = "time" + " " * 15
+    line = "time" + " " * 17
     for body_name in bodies.keys():
-        line += body_name.ljust(16, " ")
+        line += (body_name[0].upper() + body_name[1:]).ljust(16, " ")
     file.write(line + "\n")
 
     for tm, coords in all_data.items():
-        line = " ".join([str(num).rjust(2, " ") for num in tm])
+        line = "-".join([str(num).rjust(2, " ") for num in tm[:3]])
+        line += " " + ":".join([str(num).rjust(2, " ") for num in tm[3:]])
         for alt, azi in coords.values():
-            line += "   " + str("%.2f" % alt).rjust(6, " ")
-            line += " " + str("%.2f" % azi).rjust(6, " ")
+            line += "   " + str("%.1f" % alt).rjust(6, " ")
+            line += " " + str("%.1f" % azi).rjust(6, " ")
         file.write(line + "\n")
     file.close()
 
-    print("Locations added to file: " + file_name)
+    print("\nLocations added to file: " + file_name)
     
 def test():
-    all_data = get_all_data("this evening", "emu hill", intv_mag = 10, reps = 7)
+    all_data = get_all_data(year = 2020, month = 4, day = 22, hr = 16, minute = 30,
+                            height = 0, reps = 10, intv_unit = 2)
     write_to_file(all_data)
+
+def test2():
+    print(get_data(body_name = "capella", year = 2025, month = 4, day = 22,
+                   hr = 16, minute = 45, sec = 0))
 
 test()
 
