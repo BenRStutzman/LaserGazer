@@ -14,7 +14,7 @@ f.close()
 def julian_date(date = [2000, 1, 1, 0, 0]):
     # info from aa.usno.navy.mil/faq/docs/JulianDate.php, code by me
     
-    year, month, day, hour, minute, = date
+    year, month, day, hour, minute = date
     jan_1_2000 = 2451544.5
     months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     days = (year - 2000) * 365 + (year - 1997) // 4
@@ -33,6 +33,19 @@ def sidereal_time(julian_date):
     sidereal_time %= 24
     #print("sidereal time:", sidereal_time)
     return sidereal_time
+
+def sidereal_2(jd_since_2019):
+    return (6.6907 + 24.0657098 * jd_since_2019) % 24
+
+def jd_since_2019(date = [2019, 1, 1, 0, 0]):
+    year, month, day, hour, minute = date
+    months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    days = (year - 2019) * 365 + (year - 2017) // 4
+    days += sum([months[i] for i in range(month - 1)])
+    if month > 2 and year % 4 == 0:
+        days += 1
+    days += (day - 1) + hour / 24 + minute / (24 * 60)
+    return days
 
 #print(sidereal_time(float(input())))
     
@@ -69,6 +82,7 @@ def find_closest(current_coords, date = [2020, 1, 1, 0, 0]):
         target_coords = calculate_coords(ras, dec, lat, lon, date)
         dist = ang_dist(current_coords, target_coords)
         if dist < min_dist:
+            print(dist)
             min_dist = dist
             closest = name
             closest_coords = target_coords
@@ -81,14 +95,14 @@ def dms_to_deg(degrees, minutes, seconds):
 def hms_to_deg(hours, minutes, seconds):
     return (hours + minutes / 60 + seconds / 3600) / 24 * 360
 
-def test():
-    num_intvs = 10
+def test1():
+    num_intvs = 1
     intv_unit = 2
     # 1 = minute, 2 = hour, 3 = day
     intv_length = 1
-    start_date = [2020, 4, 22, 16, 30]
-    lon = - dms_to_deg(78, 52, 56.64)
-    lat = dms_to_deg(38, 28, 17.04)
+    start_date = [2019, 11, 23, 21, 45]
+    lon = -78
+    lat = 38
     for name, (ras, dec) in star_coords.items():
         date = start_date[:]
         print("\n" + name + ":")
@@ -98,7 +112,7 @@ def test():
             print(calculate_coords(ras, dec, lat, lon, date))
             date[5 - intv_unit] += intv_length
 
-def test1():
+def test2():
     while not input("Press enter to continue"):
         current_coords = tuple([float(num) for num in input("enter current coords: ").split()])
         target_coords = tuple([float(num) for num in input("enter target coords: ").split()])
@@ -120,4 +134,21 @@ def test3():
             print("%s %s is only %.f degree%s away!" % (closest, closest_coords,
                                                         min_dist, plural))
 
-test3()
+def test4():
+    for lat, lon in star_coords.values():
+        print("{%.4f, %.4f}," % (lat, lon / 57.2958))
+
+def test5():
+    for name in names:
+        print('"%s",' % name, end = " ")
+
+def test6():
+    date = [2019, 11, 23, 21, 45]
+    alt = 19
+    azi = 126
+    lat = 38
+    lon = -76
+    print(find_closest((alt, azi), date))
+    
+
+test6()
