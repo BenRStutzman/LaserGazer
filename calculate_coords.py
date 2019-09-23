@@ -151,4 +151,9 @@ def test6():
     print(find_closest((alt, azi), date))
     
 
-test6()
+def test7():
+    for i in range(26):
+        print('case %d: closest_name = "%s";' % (i, names[i]), end = " " * (16 - len(names[i]) + 1 - len(str(i))))
+        print("break;")
+        
+test7()
