@@ -4,12 +4,12 @@
 #include <Adafruit_FXAS21002C.h>
 #include <Adafruit_FXOS8700.h>
 #include <LiquidCrystal.h>
+#include "RTClib.h"
 
 const int num_bodies = 26;
 const int rs = 7, en = 8, d4 = 9, d5 = 10, d6 = 11, d7 = 12, button = 13;
 float lat, lon;
 float sidereal;
-int year, month, day, hour, minute;
 int counter, closest;
 unsigned long last_time;
 float pitch, yaw, alt, azi;
@@ -20,6 +20,10 @@ float x, y, z, mx, my, mz, gx, gy, gz;
 float alt_dist, azi_dist;
 byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
 byte down_char[8] = {0, 4, 4, 21, 14, 4, 0, 0};
+DateTime now;
+
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+RTC_DS1307 rtc;
 
 void get_name() {
   switch (closest) {
@@ -81,18 +85,18 @@ float celes[num_bodies][2] = {  {37.9545, 1.5580},    // right ascension in degr
                                 {263.4022, -0.6440},
                               };
 
-void calc_sidereal(int year, int month, int day, int hour, int minute) {
+void calc_sidereal() {
   // formula from https://aa.usno.navy.mil/faq/docs/GAST.php
 
-  float days = (year - 2019) * 365 + (year - 2017) / 4;               // days in full years since 1/1/19
+  float days = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;               // days in full years since 1/1/19
   int months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};  // lengths of months
-  for (int i = 0; i < month - 1; i++) {
+  for (int i = 0; i < now.month() - 1; i++) {
     days += months[i];  // add days in full months
   }
-  if (month > 2 && year % 4 == 0) {
+  if (now.month() > 2 && now.year() % 4 == 0) {
     days += 1;  // add day from a leap year
   }
-  days += (day - 1) + hour / 24.0 + minute / 1440.0;                  // add days from this month
+  days += (now.day() - 1) + now.hour() / 24.0 + now.minute() / 1440.0;                  // add days from this month
   sidereal = fmod(6.6907 + 24.0657 * days, 24);                       // sidereal time in hours
 }
 
@@ -136,8 +140,6 @@ void find_closest() {
   get_name();
 }
 
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
-
 // Create sensor instances.
 Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
@@ -167,12 +169,9 @@ void setup()
 {
   lat = 38.4714;
   lon = -78.8824;
-  year = 2019;
-  month = 9;
-  day = 23;
-  hour = 1;
-  minute = 20;
-  calc_sidereal(2019, 9, 23, 0, 30);
+  rtc.begin();
+  now = rtc.now();
+  calc_sidereal();
   calc_coords();
 
   Serial.begin(115200);
@@ -235,9 +234,10 @@ void loop(void)
 
   if (counter % 100 == 0) {
     lcd.clear();
-    if (millis() - last_time > 300000) {
+    if (millis() - last_time > 300000) {    //Update coordinates every 5 minutes
       last_time = millis();
-      calc_sidereal(year, month, day, hour, minute + millis() / 60000);
+      now = rtc.now();
+      calc_sidereal();
       calc_coords();
       lcd.print("UPDATING...");
       lcd.setCursor(0, 1); lcd.print("(spinning earth)");
