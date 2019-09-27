@@ -6,7 +6,7 @@
 #include <LiquidCrystal.h>
 #include "RTClib.h"
 
-const int num_bodies = 26;
+const int num_bodies = 36;
 const int button1 = 13, button2 = 12;
 const float lat = 38.4714, lon = -78.8824;
 float sidereal;
@@ -46,63 +46,82 @@ float gyro_zero_offsets[3]      = { 0.02F, 0.00F, 0.02F };
 
 void get_name() {
   switch (closest) {
-    case 0: closest_name = "Polaris";         break;
-    case 1: closest_name = "Sirius";          break;
-    case 2: closest_name = "Canopus";         break;
-    case 3: closest_name = "A Centauri";      break;
-    case 4: closest_name = "Arcturus";        break;
-    case 5: closest_name = "Vega";            break;
-    case 6: closest_name = "Capella";         break;
-    case 7: closest_name = "Rigel";           break;
-    case 8: closest_name = "Procyon";         break;
-    case 9: closest_name = "Achernar";        break;
-    case 10: closest_name = "Betelgeuse";     break;
-    case 11: closest_name = "Hadar";          break;
-    case 12: closest_name = "Acrux";          break;
-    case 13: closest_name = "Altair";         break;
-    case 14: closest_name = "Aldebaran";      break;
-    case 15: closest_name = "Antares";        break;
-    case 16: closest_name = "Spica";          break;
-    case 17: closest_name = "Pollux";         break;
-    case 18: closest_name = "Fomalhaut";      break;
-    case 19: closest_name = "Mimosa";         break;
-    case 20: closest_name = "Deneb";          break;
-    case 21: closest_name = "Regulus";        break;
-    case 22: closest_name = "Adhara";         break;
-    case 23: closest_name = "Castor";         break;
-    case 24: closest_name = "Gacrux";         break;
-    case 25: closest_name = "Shaula";         break;
+    case 0: closest_name = "Sirius";          break;
+    case 1: closest_name = "Arcturus";        break;
+    case 2: closest_name = "Vega";            break;
+    case 3: closest_name = "Capella";         break;
+    case 4: closest_name = "Rigel";           break;
+    case 5: closest_name = "Procyon";         break;
+    case 6: closest_name = "Betelgeuse";      break;
+    case 7: closest_name = "Altair";          break;
+    case 8: closest_name = "Aldebaran";       break;
+    case 9: closest_name = "Antares";         break;
+    case 10: closest_name = "Spica";          break;
+    case 11: closest_name = "Pollux";         break;
+    case 12: closest_name = "Fomalhaut";      break;
+    case 13: closest_name = "Deneb";          break;
+    case 14: closest_name = "Regulus";        break;
+    case 15: closest_name = "Adhara";         break;
+    case 16: closest_name = "Shaula";         break;
+    case 17: closest_name = "Castor";         break;
+    case 18: closest_name = "Bellatrix";      break;
+    case 19: closest_name = "Elnath";         break;
+    case 20: closest_name = "Alnilam";        break;
+    case 21: closest_name = "Alioth";         break;
+    case 22: closest_name = "Alnitak";        break;
+    case 23: closest_name = "Dubhe";          break;
+    case 24: closest_name = "Mirfak";         break;
+    case 25: closest_name = "Wezen";          break;
+    case 26: closest_name = "Sargas";         break;
+    case 27: closest_name = "E Sagittar";     break;
+    case 28: closest_name = "Alkaid";         break;
+    case 29: closest_name = "Menkalinan";     break;
+    case 30: closest_name = "Alhena";         break;
+    case 31: closest_name = "Mirzam";         break;
+    case 32: closest_name = "Alphard";        break;
+    case 33: closest_name = "Polaris";        break;
+    case 34: closest_name = "Hamal";          break;
+    case 35: closest_name = "Algieba";        break;
     default: closest_name = "Tralfamadore";   break;
   }
 }
 
-float celes[num_bodies][2] = {  {37.9545, 1.5580},    // right ascension in degrees
-                                {101.2870, -0.2668},  // and declination in radians
-                                {95.9880, -0.8954},   // of all celestial bodies
-                                {219.8995, -1.0326},
+float celes[num_bodies][2] = {  {101.2870, -0.2668},
                                 {213.9153, 0.3348},
                                 {279.2347, 0.6769},
                                 {79.1723, 0.8028},
                                 {78.6386, -0.1361},
                                 {114.8255, 0.0912},
-                                {24.4286, -0.9907},
                                 {88.7932, 0.1293},
-                                {210.9559, -1.0537},
-                                {186.6496, -1.1013},
                                 {297.6958, 0.1548},
                                 {68.9802, 0.2881},
                                 {247.3518, -0.4462},
                                 {201.2983, -0.1892},
                                 {116.3289, 0.4891},
                                 {344.4127, -0.4953},
-                                {191.9303, -1.0177},
                                 {310.3580, 0.7903},
                                 {152.0930, 0.2089},
                                 {104.6565, -0.4717},
-                                {113.6500, 0.5566},
-                                {187.7915, -0.9929},
                                 {263.4022, -0.6440},
-                              };
+                                {113.6500, 0.5566},
+                                {81.2829, 0.1108},
+                                {81.5730, 0.4993},
+                                {84.0533, -0.0139},
+                                {193.5073, 0.9767},
+                                {85.1896, -0.0010},
+                                {165.9320, 1.0778},
+                                {51.0807, 0.8702},
+                                {107.0979, -0.4469},
+                                {264.3297, -0.7156},
+                                {276.0430, -0.5867},
+                                {206.8852, 0.8607},
+                                {89.8822, 0.7845},
+                                {99.4280, 0.2862},
+                                {95.6749, -0.2800},
+                                {141.8968, -0.1281},
+                                {37.9545, 1.5580},
+                                {31.7934, 0.4095},
+                                {154.9931, 0.3463} };
 
 void calc_sidereal() {
   // formula from https://aa.usno.navy.mil/faq/docs/GAST.php
