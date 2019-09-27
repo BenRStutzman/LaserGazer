@@ -7,7 +7,7 @@
 #include "RTClib.h"
 
 const int num_bodies = 26;
-const int rs = 7, en = 8, d4 = 9, d5 = 10, d6 = 11, d7 = 12, button = 13;
+const int rs = 11, en = 10, d4 = 9, d5 = 8, d6 = 7, d7 = 6, button1 = 13, button2 = 12;
 float lat, lon;
 float sidereal;
 int counter, closest;
@@ -167,27 +167,32 @@ Madgwick filter;
 
 void setup()
 {
-  lat = 38.4714;
-  lon = -78.8824;
-  rtc.begin();
-  now = rtc.now();
-  calc_sidereal();
-  calc_coords();
-
-  Serial.begin(115200);
 
   // Initialize the sensors.
   gyro.begin();
   accelmag.begin();
+  rtc.begin();
 
   // filter rate in samples/second
   filter.begin(60);
 
   lcd.begin(16, 2);
-  pinMode(button, INPUT);
+  pinMode(button1, INPUT);
+  pinMode(button2, INPUT);
+  lcd.write("test");
+  delay(2000);
 
   lcd.createChar(0, up_char);
   lcd.createChar(1, down_char);
+
+  Serial.begin(115200);
+
+  lat = 38.4714;
+  lon = -78.8824;
+  now = rtc.now();
+  calc_sidereal();
+  calc_coords();
+  Serial.print(sidereal);
 
 }
 
@@ -231,6 +236,7 @@ void loop(void)
   yaw = filter.getYaw();
   alt = pitch + alt_offset;
   azi = fmod((720 - yaw - azi_offset), 360);
+  Serial.print(azi);
 
   if (counter % 100 == 0) {
     lcd.clear();
@@ -242,7 +248,7 @@ void loop(void)
       lcd.print("UPDATING...");
       lcd.setCursor(0, 1); lcd.print("(spinning earth)");
     } else if (abs(alt - last_alt) < 10 && (abs(azi - last_azi) < 10 | abs(azi - last_azi) > 350)) {
-      if (digitalRead(button) == HIGH) {
+      if (digitalRead(button1) == HIGH) {
         alt_offset = lat - pitch;
         azi_offset = fmod(-yaw, 360);
         lcd.print("CALIBRATING...");
