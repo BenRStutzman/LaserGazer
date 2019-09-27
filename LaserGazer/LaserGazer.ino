@@ -179,8 +179,6 @@ void setup()
   lcd.begin(16, 2);
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
-  lcd.write("test");
-  delay(2000);
 
   lcd.createChar(0, up_char);
   lcd.createChar(1, down_char);
@@ -253,6 +251,8 @@ void loop(void)
         azi_offset = fmod(-yaw, 360);
         lcd.print("CALIBRATING...");
         lcd.setCursor(0, 1); lcd.print("(setting north)");
+      } else if {
+        //TODO show the time if button2 is pressed
       } else {
         find_closest();
         lcd.print(closest_name);
