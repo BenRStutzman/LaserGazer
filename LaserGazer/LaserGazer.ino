@@ -7,23 +7,42 @@
 #include "RTClib.h"
 
 const int num_bodies = 26;
-const int rs = 11, en = 10, d4 = 9, d5 = 8, d6 = 7, d7 = 6, button1 = 13, button2 = 12;
-float lat, lon;
+const int button1 = 13, button2 = 12;
+const float lat = 38.4714, lon = -78.8824;
 float sidereal;
-int counter, closest;
-unsigned long last_time;
+unsigned long counter;
 float pitch, yaw, alt, azi;
 float last_alt, last_azi, alt_offset, azi_offset;
 float coords[num_bodies][2];
-float closest_dist; String closest_name;
+int closest; float closest_dist; String closest_name;
 float x, y, z, mx, my, mz, gx, gy, gz;
 float alt_dist, azi_dist;
 byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
 byte down_char[8] = {0, 4, 4, 21, 14, 4, 0, 0};
-DateTime now;
 
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+DateTime now;
+LiquidCrystal lcd(11, 10, 9, 8, 7, 6);
 RTC_DS1307 rtc;
+Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
+Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
+Madgwick filter;
+
+// Mag calibration values are calculated via ahrs_calibration.
+// These values must be determined for each baord/environment.
+
+// Offsets applied to raw x/y/z mag values
+float mag_offsets[3]            = { 12.75F, -24.92F, 37.93F };
+
+// Soft iron error compensation matrix
+float mag_softiron_matrix[3][3] = { {  0.960,  -0.066,  0.007 },
+                                    {  -0.066,  0.997, 0.013 },
+                                    {  0.007, 0.013,  1.050 }
+};
+
+float mag_field_strength        = 51.56F;
+
+// Offsets applied to compensate for gyro zero-drift error for x/y/z
+float gyro_zero_offsets[3]      = { 0.02F, 0.00F, 0.02F };
 
 void get_name() {
   switch (closest) {
@@ -114,88 +133,7 @@ void calc_coords() {
   }
 }
 
-void find_closest() {
-  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html
-  float alt_rad = alt / 57.2958;                        // convert to radians
-  float azi_rad = azi / 57.2958;
-  float min_dist = 3.1416;                              // reset closest and min_dist
-  closest = -1;
-  
-  for (int i = 0; i < num_bodies; i++) {
-    float targ_alt_rad = coords[i][0] / 57.2958;                            // target coords in radians
-    float targ_azi_rad = coords[i][1] / 57.2958;
-    float dist = acos(cos(1.5708 - alt_rad) * cos(1.5708 - targ_alt_rad) +  // angular distance
-                      sin(1.5708 - alt_rad) * sin(1.5708 - targ_alt_rad) *
-                      cos(azi_rad - targ_azi_rad));
-    if (dist < min_dist) {                                                  // set closest to this one if it's closer
-      min_dist = dist;
-      closest = i;
-      closest_dist = min_dist * 57.2958;                                    // convert to degrees
-      alt_dist = coords[i][0] - alt;
-      azi_dist = coords[i][1] - azi;
-      if (azi_dist > 180) { azi_dist -= 360; }
-      else if (azi_dist < -180) { azi_dist += 360; }
-    }
-  }
-  get_name();
-}
-
-// Create sensor instances.
-Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
-Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
-
-// Mag calibration values are calculated via ahrs_calibration.
-// These values must be determined for each baord/environment.
-// See the image in this sketch folder for the values used
-// below.
-
-// Offsets applied to raw x/y/z mag values
-float mag_offsets[3]            = { 12.75F, -24.92F, 37.93F };
-
-// Soft iron error compensation matrix
-float mag_softiron_matrix[3][3] = { {  0.960,  -0.066,  0.007 },
-                                    {  -0.066,  0.997, 0.013 },
-                                    {  0.007, 0.013,  1.050 }
-};
-
-float mag_field_strength        = 51.56F;
-
-// Offsets applied to compensate for gyro zero-drift error for x/y/z
-float gyro_zero_offsets[3]      = { 0.02F, 0.00F, 0.02F };
-
-Madgwick filter;
-
-void setup()
-{
-
-  // Initialize the sensors.
-  gyro.begin();
-  accelmag.begin();
-  rtc.begin();
-
-  // filter rate in samples/second
-  filter.begin(60);
-
-  lcd.begin(16, 2);
-  pinMode(button1, INPUT);
-  pinMode(button2, INPUT);
-
-  lcd.createChar(0, up_char);
-  lcd.createChar(1, down_char);
-
-  Serial.begin(115200);
-
-  lat = 38.4714;
-  lon = -78.8824;
-  now = rtc.now();
-  calc_sidereal();
-  calc_coords();
-  Serial.print(sidereal);
-
-}
-
-void loop(void)
-{
+void get_orientation() {
   sensors_event_t gyro_event;
   sensors_event_t accel_event;
   sensors_event_t mag_event;
@@ -234,46 +172,120 @@ void loop(void)
   yaw = filter.getYaw();
   alt = pitch + alt_offset;
   azi = fmod((720 - yaw - azi_offset), 360);
-  Serial.print(azi);
+}
 
+void find_closest() {
+  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html
+  float alt_rad = alt / 57.2958;                        // convert to radians
+  float azi_rad = azi / 57.2958;
+  float min_dist = 3.1416;                              // reset closest and min_dist
+  closest = -1;
+  
+  for (int i = 0; i < num_bodies; i++) {
+    float targ_alt_rad = coords[i][0] / 57.2958;                            // target coords in radians
+    float targ_azi_rad = coords[i][1] / 57.2958;
+    float dist = acos(cos(1.5708 - alt_rad) * cos(1.5708 - targ_alt_rad) +  // angular distance
+                      sin(1.5708 - alt_rad) * sin(1.5708 - targ_alt_rad) *
+                      cos(azi_rad - targ_azi_rad));
+    if (dist < min_dist) {                                                  // set closest to this one if it's closer
+      min_dist = dist;
+      closest = i;
+      closest_dist = min_dist * 57.2958;                                    // convert to degrees
+      alt_dist = coords[i][0] - alt;
+      azi_dist = coords[i][1] - azi;
+      if (azi_dist > 180) { azi_dist -= 360; }
+      else if (azi_dist < -180) { azi_dist += 360; }
+    }
+  }
+  get_name();
+}
+
+void print_screen1() {
+  lcd.clear();
+  lcd.print(closest_name);
+  lcd.setCursor(10, 0);
+  if (alt_dist > 1) { lcd.write((byte)0); }
+  else if (alt_dist < -1){ lcd.write(1); }
+  else { lcd.write(42); }
+  lcd.setCursor(14, 0);
+  if (azi_dist > 1) { lcd.write(126); }
+  else if (azi_dist < -1){ lcd.write(127); }
+  else { lcd.write(42); }
+  lcd.setCursor(0, 1); lcd.print(round(closest_dist));
+  lcd.setCursor(2, 1); lcd.write(223);
+  lcd.setCursor(4, 1); lcd.print("from");
+  lcd.setCursor(9, 1); lcd.print(round(alt));
+  lcd.setCursor(12, 1); lcd.print(",");
+  lcd.setCursor(13, 1); lcd.print(round(azi));
+}
+
+void print_screen2() {
+  lcd.clear();
+  lcd.print(now.year()); lcd.print("-");
+  lcd.print(now.month()); lcd.print("-");
+  lcd.print(now.day()); lcd.print(" ");
+  lcd.print(now.hour()); lcd.print(":");
+  lcd.print(now.minute());
+  lcd.setCursor(0, 1); lcd.print(alt_offset);
+  lcd.setCursor(8, 1); lcd.print(azi_offset);
+}
+
+void calibrate(){
+  alt_offset = lat - pitch;
+  azi_offset = fmod(-yaw, 360);
+}
+
+void update_coords() {
+  now = rtc.now();
+  calc_sidereal();
+  calc_coords();
+}
+
+void stall() {
+  lcd.clear();
+  lcd.print("CALCULATING...");
+  lcd.setCursor(0,1); lcd.print("(searching sky)");
+}
+
+void setup()
+{
+
+  gyro.begin();
+  accelmag.begin();
+  rtc.begin();
+  filter.begin(60); // filter rate in samples/second
+  lcd.begin(16, 2);
+  Serial.begin(115200);
+  
+  pinMode(button1, INPUT);
+  pinMode(button2, INPUT);
+  lcd.createChar(0, up_char);
+  lcd.createChar(1, down_char);
+
+  now = rtc.now();
+  calc_sidereal();
+  calc_coords();
+
+}
+
+void loop(void)
+{
+  get_orientation();
+  
   if (counter % 100 == 0) {
-    lcd.clear();
-    if (millis() - last_time > 300000) {    //Update coordinates every 5 minutes
-      last_time = millis();
-      now = rtc.now();
-      calc_sidereal();
-      calc_coords();
-      lcd.print("UPDATING...");
-      lcd.setCursor(0, 1); lcd.print("(spinning earth)");
-    } else if (abs(alt - last_alt) < 10 && (abs(azi - last_azi) < 10 | abs(azi - last_azi) > 350)) {
-      if (digitalRead(button1) == HIGH) {
-        alt_offset = lat - pitch;
-        azi_offset = fmod(-yaw, 360);
-        lcd.print("CALIBRATING...");
-        lcd.setCursor(0, 1); lcd.print("(setting north)");
-      } else if {
-        //TODO show the time if button2 is pressed
-      } else {
-        find_closest();
-        lcd.print(closest_name);
-        lcd.setCursor(10, 0);
-        if (alt_dist > 1) { lcd.write((byte)0); }
-        else if (alt_dist < -1){ lcd.write(1); }
-        else { lcd.write(42); }
-        lcd.setCursor(14, 0);
-        if (azi_dist > 1) { lcd.write(126); }
-        else if (azi_dist < -1){ lcd.write(127); }
-        else { lcd.write(42); }
-        lcd.setCursor(0, 1); lcd.print(round(closest_dist));
-        lcd.setCursor(2, 1); lcd.write(223);
-        lcd.setCursor(4, 1); lcd.print("from");
-        lcd.setCursor(9, 1); lcd.print(round(alt));
-        lcd.setCursor(12, 1); lcd.print(",");
-        lcd.setCursor(13, 1); lcd.print(round(azi));
-      }
+    if (counter % 18000 == 0) { update_coords(); }  // Update coords about every 5 minutes
+    if (digitalRead(button1) == HIGH && digitalRead(button2) == HIGH) {
+      alt_offset = 0;
+      azi_offset = 0;
+    } else if (digitalRead(button2) == HIGH) {
+      calibrate();
+    } else if (digitalRead(button1) == HIGH) {
+      print_screen2();
     } else {
-      lcd.print("CALCULATING...");
-      lcd.setCursor(0,1); lcd.print("(searching sky)");
+      if (abs(alt - last_alt) < 10 && (abs(azi - last_azi) < 10 | abs(azi - last_azi) > 350)) {
+        find_closest();
+        print_screen1();
+      } else { stall(); }
     }
     last_alt = alt;
     last_azi = azi;
