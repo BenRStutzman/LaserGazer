@@ -16,3 +16,6 @@ for lat, lon in star_coords.values():
 for i in range(len(names)):
     print('case %d: closest_name = "%s";' % (i, names[i]), end = " " * (16 - len(names[i]) + 1 - len(str(i))))
     print("break;")
+
+for name in names:
+    print('"' + name, end = '", ')

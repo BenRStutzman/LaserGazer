@@ -6,13 +6,16 @@
 #include <LiquidCrystal.h>
 #include "RTClib.h"
 
-const int num_bodies = 36;
-const int button1 = 13, button2 = 12;
+const int num_bodies = 30;
 const float lat = 38.4714, lon = -78.8824;
+const int button1 = 13, button2 = 12;
+float orbs[5][6]; // N, i, w, M, e, a
 float sidereal;
+float d;
 unsigned long counter;
+float r2d = 57.2958;
 float pitch, yaw, alt, azi;
-float last_alt, last_azi, alt_offset, azi_offset;
+float alt_offset, azi_offset;
 float coords[num_bodies][2];
 int closest; float closest_dist; String closest_name;
 float x, y, z, mx, my, mz, gx, gy, gz;
@@ -39,54 +42,63 @@ float mag_softiron_matrix[3][3] = { {  0.960,  -0.066,  0.007 },
                                     {  0.007, 0.013,  1.050 }
 };
 
-float mag_field_strength        = 51.56F;
-
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
 float gyro_zero_offsets[3]      = { 0.02F, 0.00F, 0.02F };
 
 void get_name() {
   switch (closest) {
-    case 0: closest_name = "Sirius";          break;
-    case 1: closest_name = "Arcturus";        break;
-    case 2: closest_name = "Vega";            break;
-    case 3: closest_name = "Capella";         break;
-    case 4: closest_name = "Rigel";           break;
-    case 5: closest_name = "Procyon";         break;
-    case 6: closest_name = "Betelgeuse";      break;
-    case 7: closest_name = "Altair";          break;
-    case 8: closest_name = "Aldebaran";       break;
-    case 9: closest_name = "Antares";         break;
-    case 10: closest_name = "Spica";          break;
-    case 11: closest_name = "Pollux";         break;
-    case 12: closest_name = "Fomalhaut";      break;
-    case 13: closest_name = "Deneb";          break;
-    case 14: closest_name = "Regulus";        break;
-    case 15: closest_name = "Adhara";         break;
-    case 16: closest_name = "Shaula";         break;
-    case 17: closest_name = "Castor";         break;
-    case 18: closest_name = "Bellatrix";      break;
-    case 19: closest_name = "Elnath";         break;
-    case 20: closest_name = "Alnilam";        break;
-    case 21: closest_name = "Alioth";         break;
-    case 22: closest_name = "Alnitak";        break;
-    case 23: closest_name = "Dubhe";          break;
-    case 24: closest_name = "Mirfak";         break;
-    case 25: closest_name = "Wezen";          break;
-    case 26: closest_name = "Sargas";         break;
-    case 27: closest_name = "E Sagittar";     break;
-    case 28: closest_name = "Alkaid";         break;
-    case 29: closest_name = "Menkalinan";     break;
-    case 30: closest_name = "Alhena";         break;
-    case 31: closest_name = "Mirzam";         break;
-    case 32: closest_name = "Alphard";        break;
-    case 33: closest_name = "Polaris";        break;
-    case 34: closest_name = "Hamal";          break;
-    case 35: closest_name = "Algieba";        break;
+    case 0: closest_name = "Mercury";         break;
+    case 1: closest_name = "Venus";           break;
+    case 2: closest_name = "Mars";            break;
+    case 3: closest_name = "Jupiter";         break;
+    case 4: closest_name = "Saturn";          break;
+    case 5: closest_name = "Sirius";          break;
+    case 6: closest_name = "Arcturus";        break;
+    case 7: closest_name = "Vega";            break;
+    case 8: closest_name = "Capella";         break;
+    case 9: closest_name = "Rigel";           break;
+    case 10: closest_name = "Procyon";         break;
+    case 11: closest_name = "Betelgeuse";      break;
+    case 12: closest_name = "Altair";          break;
+    case 13: closest_name = "Aldebaran";       break;
+    case 14: closest_name = "Antares";         break;
+    case 15: closest_name = "Spica";          break;
+    case 16: closest_name = "Pollux";         break;
+    case 17: closest_name = "Fomalhaut";      break;
+    case 18: closest_name = "Deneb";          break;
+    case 19: closest_name = "Regulus";        break;
+    case 20: closest_name = "Adhara";         break;
+    case 21: closest_name = "Shaula";         break;
+    case 22: closest_name = "Castor";         break;
+    case 23: closest_name = "Bellatrix";      break;
+    case 24: closest_name = "Elnath";         break;
+    case 25: closest_name = "Alnilam";        break;
+    case 26: closest_name = "Alioth";         break;
+    case 27: closest_name = "Alnitak";        break;
+    case 28: closest_name = "Dubhe";          break;
+    case 29: closest_name = "Mirfak";         break;
+    /*
+    case 30: closest_name = "Wezen";          break;
+    case 31: closest_name = "Sargas";         break;
+    case 32: closest_name = "E Sagittar";     break;
+    case 33: closest_name = "Alkaid";         break;
+    case 34: closest_name = "Menkalinan";     break;
+    case 35: closest_name = "Alhena";         break;
+    case 36: closest_name = "Mirzam";         break;
+    case 37: closest_name = "Alphard";        break;
+    case 38: closest_name = "Polaris";        break;
+    case 39: closest_name = "Hamal";          break;
+    */
     default: closest_name = "Tralfamadore";   break;
   }
 }
 
-float celes[num_bodies][2] = {  {101.2870, -0.2668},
+float celes[num_bodies][2] = {  {0, 0},
+                                {0, 0},
+                                {0, 0},
+                                {0, 0},
+                                {0, 0},
+                                {101.2870, -0.2668},
                                 {213.9153, 0.3348},
                                 {279.2347, 0.6769},
                                 {79.1723, 0.8028},
@@ -111,6 +123,7 @@ float celes[num_bodies][2] = {  {101.2870, -0.2668},
                                 {85.1896, -0.0010},
                                 {165.9320, 1.0778},
                                 {51.0807, 0.8702},
+                                /*
                                 {107.0979, -0.4469},
                                 {264.3297, -0.7156},
                                 {276.0430, -0.5867},
@@ -120,35 +133,110 @@ float celes[num_bodies][2] = {  {101.2870, -0.2668},
                                 {95.6749, -0.2800},
                                 {141.8968, -0.1281},
                                 {37.9545, 1.5580},
-                                {31.7934, 0.4095},
-                                {154.9931, 0.3463} };
+                                {31.7934, 0.4095}
+                                */
+                                };
 
 void calc_sidereal() {
   // formula from https://aa.usno.navy.mil/faq/docs/GAST.php
 
-  float days = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;               // days in full years since 1/1/19
+  d = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;               // days in full years since 1/1/19
   int months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};  // lengths of months
   for (int i = 0; i < now.month() - 1; i++) {
-    days += months[i];  // add days in full months
+    d += months[i];  // add days in full months
   }
   if (now.month() > 2 && now.year() % 4 == 0) {
-    days += 1;  // add day from a leap year
+    d += 1;  // add day from a leap year
   }
-  days += (now.day() - 1) + now.hour() / 24.0 + now.minute() / 1440.0;                  // add days from this month
-  sidereal = fmod(6.6907 + 24.0657 * days, 24);                       // sidereal time in hours
+  d += (now.day() - 1) + now.hour() / 24.0 + now.minute() / 1440.0;                  // add days from this month
+  sidereal = fmod(6.6907 + 24.0657 * d, 24);                       // sidereal time in hours
+  d += 6941;
+}
+
+void calc_planets(){
+  // formulae from https://stjarnhimlen.se/comp/ppcomp.html
+  
+  orbs[0][0] = 48.3313 + 3.24587E-5 * d;
+  orbs[0][1] = 7.0047 + 5.00E-8 * d;
+  orbs[0][2] = 29.1241 + 1.01444E-5 * d;
+  orbs[0][3] = 168.6562 + 4.0923344368 * d;
+  orbs[0][4] = 0.205635 + 5.59E-10 * d;
+  orbs[0][5] = 0.387098;
+  orbs[1][0] = 76.6799 + 2.46590E-5 * d;
+  orbs[1][1] = 3.3946 + 2.75E-8 * d;
+  orbs[1][2] = 54.8910 + 1.38374E-5 * d;
+  orbs[1][3] = 48.0052 + 1.6021302244 * d;
+  orbs[1][4] = 0.006773 - 1.302E-9 * d;
+  orbs[1][5] = 0.723330;
+  orbs[2][0] = 49.5574 + 2.11081E-5 * d;
+  orbs[2][1] = 1.8497 - 1.78E-8 * d; 
+  orbs[2][2] = 286.5016 + 2.92961E-5 * d;
+  orbs[2][3] = 18.6021 + 0.5240207766 * d;
+  orbs[2][4] = 0.093405 + 2.516E-9 * d;
+  orbs[2][5] = 1.523688;
+  orbs[3][0] = 100.4542 + 2.76854E-5 * d;
+  orbs[3][1] = 1.3030 - 1.557E-7 * d;
+  orbs[3][2] = 273.8777 + 1.64505E-5 * d;
+  orbs[3][3] = 19.8950 + 0.0830853001 * d;
+  orbs[3][4] = 0.048498 + 4.469E-9 * d;
+  orbs[3][5] = 5.20256;
+  orbs[4][0] = 113.6634 + 2.38980E-5 * d;
+  orbs[4][1] = 2.4886 - 1.081E-7 * d;
+  orbs[4][2] = 339.3939 + 2.97661E-5 * d;
+  orbs[4][3] = 316.9670 + 0.0334442282 * d;
+  orbs[4][4] = 0.055546 - 9.499E-9 * d;
+  orbs[4][5] = 9.55475;
+  
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 4; j++)
+    orbs[i][j] = fmod(orbs[i][j], 360) / r2d;
+  }
+  
+  float E, E1, xv, yv, v, r, xh, yh, zh, xs, ys, xg, yg, zg, xe, ye, ze;
+  float s3 = 356.0470 + 0.9856002585 * d;
+  float s4 = 0.016709 - 1.151E-9 * d;
+  E = s3 + s4 * sin (s3) * (1 + s4 * cos(s3));
+  xv = cos(E) - s4;
+  yv = sqrt(1 - s4 * s4) * sin(E);
+  v = atan2 (yv, xv);
+  float rs = sqrt(xv * xv + yv * yv);
+  float lons = v + 282.9404 + 4.70935E-5 * d;
+  for (int i = 0; i < 5; i++) {
+    E = orbs[i][3] + orbs[i][4] * sin (orbs[i][3]) * (1 + orbs[i][4] * cos(orbs[i][3]));
+    E1 = E + 1;
+    while (abs(E - E1) > 2E-5) {
+      E1 = E;
+      E = E1 - ( E1 - orbs[i][4] * sin(E1) - orbs[i][3]) / (1 - orbs[i][4] * cos(E1));
+    }
+    xv = orbs[i][5] * (cos(E) - orbs[i][4]);
+    yv = orbs[i][5] * (sqrt(1 - orbs[i][4] * orbs[i][4]) * sin(E));
+    v = atan2(yv, xv);
+    r = sqrt(xv * xv + yv * yv);
+    xh = r * (cos(orbs[i][0]) * cos(v + orbs[i][2]) - sin(orbs[i][0]) * sin(v + orbs[i][2]) * cos(orbs[i][1]));
+    yh = r * (sin(orbs[i][0]) * cos(v + orbs[i][2]) + cos(orbs[i][0]) * sin(v + orbs[i][2]) * cos(orbs[i][1]));
+    zh = r * (sin(v + orbs[i][2]) * sin(orbs[i][1]));
+    xs = rs * cos(lons);
+    ys = rs * sin(lons);
+    xg = xh + xs;
+    yg = yh + ys;
+    zg = zh;
+    xe = xg;
+    ye = yg * 0.9175 - zg * 0.3977;
+    ze = yg * 0.3977 + zg * 0.9175;
+    celes[i][0] = fmod(atan2(ye, xe) * r2d + 360, 360);
+    celes[i][1] = atan2(ze, sqrt(xe * xe + ye * ye)) * r2d;
+  }
 }
 
 void calc_coords() {
   // formulae from https://aa.usno.navy.mil/faq/docs/Alt_Az.php
 
   for (int i = 0; i < num_bodies; i++) {
-    float LHA = (sidereal * 15 - celes[i][0] + lon) / 57.2958;                // local hour angle
-    float lat_rad = lat / 57.2958;                                            // lat in radians
-    float dec = celes[i][1];                                                  // declination in radians
-
-    coords[i][0] = asin(cos(LHA) * cos(dec) * cos(lat_rad) + sin(dec) * sin(lat_rad)) * 57.2958;  // altitude of the body
-    coords[i][1] = fmod(atan2(-sin(LHA), tan(dec) * cos(lat_rad) - sin(lat_rad) * cos(LHA))       // azimuth of the body
-                        * 57.2958 + 360, 360);
+    float LHA = (sidereal * 15 - celes[i][0] + lon) / r2d;                // local hour angle
+    
+    coords[i][0] = asin(cos(LHA) * cos(celes[i][1]) * cos(lat / r2d) + sin(celes[i][1]) * sin(lat / r2d)) * r2d;  // altitude of the body
+    coords[i][1] = fmod(atan2(-sin(LHA), tan(celes[i][1]) * cos(lat / r2d) - sin(lat / r2d) * cos(LHA))       // azimuth of the body
+                        * r2d + 360, 360);
   }
 }
 
@@ -177,16 +265,15 @@ void get_orientation() {
   gz = gyro_event.gyro.z + gyro_zero_offsets[2];
 
   // convert gyro values to degrees/sec
-  gx *= 57.2958F;
-  gy *= 57.2958F;
-  gz *= 57.2958F;
+  gx *= r2d;
+  gy *= r2d;
+  gz *= r2d;
 
   // Update the filter
   filter.update(gx, gy, gz,
                 accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z,
                 mx, my, mz);
-
-  //float roll = filter.getRoll();
+                
   pitch = filter.getPitch();
   yaw = filter.getYaw();
   alt = pitch + alt_offset;
@@ -194,22 +281,17 @@ void get_orientation() {
 }
 
 void find_closest() {
-  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html
-  float alt_rad = alt / 57.2958;                        // convert to radians
-  float azi_rad = azi / 57.2958;
-  float min_dist = 3.1416;                              // reset closest and min_dist
-  closest = -1;
+  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html                     // convert to radians
+  float min_dist = 4;                              // reset min_dist
   
   for (int i = 0; i < num_bodies; i++) {
-    float targ_alt_rad = coords[i][0] / 57.2958;                            // target coords in radians
-    float targ_azi_rad = coords[i][1] / 57.2958;
-    float dist = acos(cos(1.5708 - alt_rad) * cos(1.5708 - targ_alt_rad) +  // angular distance
-                      sin(1.5708 - alt_rad) * sin(1.5708 - targ_alt_rad) *
-                      cos(azi_rad - targ_azi_rad));
+    float dist = acos(cos(1.5708 - alt / r2d) * cos(1.5708 - coords[i][0] / r2d) +  // angular distance
+                      sin(1.5708 - alt / r2d) * sin(1.5708 - coords[i][0] / r2d) *
+                      cos(azi / r2d - coords[i][1] / r2d));
     if (dist < min_dist) {                                                  // set closest to this one if it's closer
       min_dist = dist;
       closest = i;
-      closest_dist = min_dist * 57.2958;                                    // convert to degrees
+      closest_dist = min_dist * r2d;                                    // convert to degrees
       alt_dist = coords[i][0] - alt;
       azi_dist = coords[i][1] - azi;
       if (azi_dist > 180) { azi_dist -= 360; }
@@ -260,12 +342,6 @@ void update_coords() {
   calc_coords();
 }
 
-void stall() {
-  lcd.clear();
-  lcd.print("CALCULATING...");
-  lcd.setCursor(0,1); lcd.print("(searching sky)");
-}
-
 void setup()
 {
 
@@ -275,6 +351,7 @@ void setup()
   filter.begin(60); // filter rate in samples/second
   lcd.begin(16, 2);
   Serial.begin(115200);
+  Serial.print("testing...");
   
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
@@ -283,12 +360,13 @@ void setup()
 
   now = rtc.now();
   calc_sidereal();
+  calc_planets();
   calc_coords();
 
 }
 
-void loop(void)
-{
+void loop(void) {
+  Serial.print("hello");
   get_orientation();
   
   if (counter % 100 == 0) {
@@ -301,13 +379,9 @@ void loop(void)
     } else if (digitalRead(button1) == HIGH) {
       print_screen2();
     } else {
-      if (abs(alt - last_alt) < 10 && (abs(azi - last_azi) < 10 | abs(azi - last_azi) > 350)) {
         find_closest();
         print_screen1();
-      } else { stall(); }
     }
-    last_alt = alt;
-    last_azi = azi;
   }
 
   counter++;
