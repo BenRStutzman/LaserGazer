@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include "RTClib.h"
 DateTime now;
 RTC_DS1307 rtc;
@@ -114,18 +113,4 @@ void setup() {
   calc_sidereal();
   calc_orbs();
   calc_planets();  
-}
-
-void loop() {
-  
-=======
-void setup() {
-  // put your setup code here, to run once:
-
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-
->>>>>>> 8ea5733d1ac3f42b007ffb5ea1176b093d9bd608
 }
