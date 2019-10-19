@@ -6,22 +6,28 @@
 #include <LiquidCrystal.h>
 #include "RTClib.h"
 
-const int num_bodies = 30;
-const float lat = 38.4714, lon = -78.8824;
-const int button1 = 13, button2 = 12;
-float orbs[5][6]; // N, i, w, M, e, a
+//const float lat = 38.4714, lon = -78.8824; // EMU Hill
+//const float lat = 40.0424, lon = -76.3165; // Pine St. Backyard
+const float lat = 39.8441, lon = -76.2867; // Muddy Run Observatory
+const float r2d = 57.2958;
+const byte num_bodies = 40;
+const byte button1 = 13, button2 = 12;
+const byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
+const byte down_char[8] = {0, 4, 4, 21, 14, 4, 0, 0};
+const byte months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
 float sidereal;
 float d;
-unsigned long counter;
-float r2d = 57.2958;
+float orbs[5][6]; // N, i, w, M, e, a
+float coords[num_bodies][2];
 float pitch, yaw, alt, azi;
 float alt_offset, azi_offset;
-float coords[num_bodies][2];
-int closest; float closest_dist; String closest_name;
-float x, y, z, mx, my, mz, gx, gy, gz;
 float alt_dist, azi_dist;
-byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
-byte down_char[8] = {0, 4, 4, 21, 14, 4, 0, 0};
+float x, y, z, mx, my, mz, gx, gy, gz;
+float closest_dist;
+unsigned long counter;
+String closest_name;
+
 
 DateTime now;
 LiquidCrystal lcd(11, 10, 9, 8, 7, 6);
@@ -43,10 +49,10 @@ float mag_softiron_matrix[3][3] = { {  0.960,  -0.066,  0.007 },
 };
 
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
-float gyro_zero_offsets[3]      = { 0.02F, 0.00F, 0.02F };
+float gyro_zero_offsets[3]      = { 0.02, 0.00, 0.02 };
 
-void get_name() {
-  switch (closest) {
+void get_name(byte i) {
+  switch (i) {
     case 0: closest_name = "Mercury";         break;
     case 1: closest_name = "Venus";           break;
     case 2: closest_name = "Mars";            break;
@@ -77,7 +83,6 @@ void get_name() {
     case 27: closest_name = "Alnitak";        break;
     case 28: closest_name = "Dubhe";          break;
     case 29: closest_name = "Mirfak";         break;
-    /*
     case 30: closest_name = "Wezen";          break;
     case 31: closest_name = "Sargas";         break;
     case 32: closest_name = "E Sagittar";     break;
@@ -87,9 +92,7 @@ void get_name() {
     case 36: closest_name = "Mirzam";         break;
     case 37: closest_name = "Alphard";        break;
     case 38: closest_name = "Polaris";        break;
-    case 39: closest_name = "Hamal";          break;
-    */
-    default: closest_name = "Tralfamadore";   break;
+    case 39: closest_name = "Hamal";          break;  
   }
 }
 
@@ -123,7 +126,6 @@ float celes[num_bodies][2] = {  {0, 0},
                                 {85.1896, -0.0010},
                                 {165.9320, 1.0778},
                                 {51.0807, 0.8702},
-                                /*
                                 {107.0979, -0.4469},
                                 {264.3297, -0.7156},
                                 {276.0430, -0.5867},
@@ -134,15 +136,13 @@ float celes[num_bodies][2] = {  {0, 0},
                                 {141.8968, -0.1281},
                                 {37.9545, 1.5580},
                                 {31.7934, 0.4095}
-                                */
                                 };
 
 void calc_sidereal() {
   // formula from https://aa.usno.navy.mil/faq/docs/GAST.php
 
   d = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;               // days in full years since 1/1/19
-  int months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};  // lengths of months
-  for (int i = 0; i < now.month() - 1; i++) {
+  for (byte i = 0; i < now.month() - 1; i++) {
     d += months[i];  // add days in full months
   }
   if (now.month() > 2 && now.year() % 4 == 0) {
@@ -187,21 +187,21 @@ void calc_planets(){
   orbs[4][4] = 0.055546 - 9.499E-9 * d;
   orbs[4][5] = 9.55475;
   
-  for (int i = 0; i < 5; i++) {
-    for (int j = 0; j < 4; j++)
+  for (byte i = 0; i < 5; i++) {
+    for (byte j = 0; j < 4; j++)
     orbs[i][j] = fmod(orbs[i][j], 360) / r2d;
   }
   
   float E, E1, xv, yv, v, r, xh, yh, zh, xs, ys, xg, yg, zg, xe, ye, ze;
-  float s3 = 356.0470 + 0.9856002585 * d;
+  float s3 = fmod(356.0470 + 0.9856002585 * d, 360) / r2d;
   float s4 = 0.016709 - 1.151E-9 * d;
   E = s3 + s4 * sin (s3) * (1 + s4 * cos(s3));
   xv = cos(E) - s4;
   yv = sqrt(1 - s4 * s4) * sin(E);
   v = atan2 (yv, xv);
   float rs = sqrt(xv * xv + yv * yv);
-  float lons = v + 282.9404 + 4.70935E-5 * d;
-  for (int i = 0; i < 5; i++) {
+  float lons = v + fmod(282.9404 + 4.70935E-5 * d, 360) / r2d;
+  for (byte i = 0; i < 5; i++) {
     E = orbs[i][3] + orbs[i][4] * sin (orbs[i][3]) * (1 + orbs[i][4] * cos(orbs[i][3]));
     E1 = E + 1;
     while (abs(E - E1) > 2E-5) {
@@ -224,14 +224,14 @@ void calc_planets(){
     ye = yg * 0.9175 - zg * 0.3977;
     ze = yg * 0.3977 + zg * 0.9175;
     celes[i][0] = fmod(atan2(ye, xe) * r2d + 360, 360);
-    celes[i][1] = atan2(ze, sqrt(xe * xe + ye * ye)) * r2d;
+    celes[i][1] = atan2(ze, sqrt(xe * xe + ye * ye));
   }
 }
 
 void calc_coords() {
   // formulae from https://aa.usno.navy.mil/faq/docs/Alt_Az.php
 
-  for (int i = 0; i < num_bodies; i++) {
+  for (byte i = 0; i < num_bodies; i++) {
     float LHA = (sidereal * 15 - celes[i][0] + lon) / r2d;                // local hour angle
     
     coords[i][0] = asin(cos(LHA) * cos(celes[i][1]) * cos(lat / r2d) + sin(celes[i][1]) * sin(lat / r2d)) * r2d;  // altitude of the body
@@ -283,8 +283,9 @@ void get_orientation() {
 void find_closest() {
   // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html                     // convert to radians
   float min_dist = 4;                              // reset min_dist
+  byte closest;
   
-  for (int i = 0; i < num_bodies; i++) {
+  for (byte i = 0; i < num_bodies; i++) {
     float dist = acos(cos(1.5708 - alt / r2d) * cos(1.5708 - coords[i][0] / r2d) +  // angular distance
                       sin(1.5708 - alt / r2d) * sin(1.5708 - coords[i][0] / r2d) *
                       cos(azi / r2d - coords[i][1] / r2d));
@@ -298,7 +299,7 @@ void find_closest() {
       else if (azi_dist < -180) { azi_dist += 360; }
     }
   }
-  get_name();
+  get_name(closest);
 }
 
 void print_screen1() {
@@ -339,35 +340,24 @@ void calibrate(){
 void update_coords() {
   now = rtc.now();
   calc_sidereal();
+  calc_planets();
   calc_coords();
 }
 
 void setup()
 {
-
   gyro.begin();
   accelmag.begin();
   rtc.begin();
   filter.begin(60); // filter rate in samples/second
   lcd.begin(16, 2);
-  Serial.begin(115200);
-  Serial.print("testing...");
-  
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
   lcd.createChar(0, up_char);
   lcd.createChar(1, down_char);
-
-  now = rtc.now();
-  calc_sidereal();
-  calc_planets();
-  calc_coords();
-
 }
 
 void loop(void) {
-  Serial.print("hello");
-  get_orientation();
   
   if (counter % 100 == 0) {
     if (counter % 18000 == 0) { update_coords(); }  // Update coords about every 5 minutes
@@ -383,6 +373,8 @@ void loop(void) {
         print_screen1();
     }
   }
+
+  get_orientation();
 
   counter++;
   delay(10);

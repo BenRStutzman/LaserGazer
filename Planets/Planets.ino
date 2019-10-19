@@ -114,3 +114,6 @@ void setup() {
   calc_orbs();
   calc_planets();  
 }
+
+void loop() {
+}
