@@ -6,14 +6,19 @@
 #include <LiquidCrystal.h>
 #include "RTClib.h"
 
-//const float lat = 38.4714, lon = -78.8824; // EMU Hill
+const float lat = 38.4714, lon = -78.8824; // EMU Hill
 //const float lat = 40.0424, lon = -76.3165; // Pine St. Backyard
-const float lat = 39.8441, lon = -76.2867; // Muddy Run Observatory
+//const float lat = 39.8441, lon = -76.2867; // Muddy Run Observatory
+
 const float r2d = 57.2958;
 const byte num_bodies = 40;
 const byte button1 = 13, button2 = 12;
 const byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
 const byte down_char[8] = {0, 4, 4, 21, 14, 4, 0, 0};
+const byte up_left_char[8] = {0, 0, 0, 30, 24, 20, 18, 1};
+const byte up_right_char[8] = {0, 0, 0, 15, 3, 5, 9, 16};
+const byte down_left_char[8] = {1, 18, 20, 24, 30, 0, 0, 0};
+const byte down_right_char[8] = {16, 9, 5, 3, 15, 0, 0, 0};
 const byte months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 float sidereal;
@@ -38,14 +43,15 @@ Madgwick filter;
 
 // Mag calibration values are calculated via ahrs_calibration.
 // These values must be determined for each baord/environment.
+// Last calibrated: 10/23/19 on the EMU Hill
 
 // Offsets applied to raw x/y/z mag values
-float mag_offsets[3]            = { 12.75F, -24.92F, 37.93F };
+float mag_offsets[3]            = { 16.18, -11.87, 32.63 };
 
 // Soft iron error compensation matrix
-float mag_softiron_matrix[3][3] = { {  0.960,  -0.066,  0.007 },
-                                    {  -0.066,  0.997, 0.013 },
-                                    {  0.007, 0.013,  1.050 }
+float mag_softiron_matrix[3][3] = { {  1.012,  0.008,  -0.009 },
+                                    {  0.007,  0.965, -0.001 },
+                                    {  -0.009, -0.001,  1.024 }
 };
 
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
@@ -85,7 +91,7 @@ void get_name(byte i) {
     case 29: closest_name = "Mirfak";         break;
     case 30: closest_name = "Wezen";          break;
     case 31: closest_name = "Sargas";         break;
-    case 32: closest_name = "E Sagittar";     break;
+    case 32: closest_name = "Kaus Australis"; break;
     case 33: closest_name = "Alkaid";         break;
     case 34: closest_name = "Menkalinan";     break;
     case 35: closest_name = "Alhena";         break;
@@ -278,6 +284,7 @@ void get_orientation() {
   yaw = filter.getYaw();
   alt = pitch + alt_offset;
   azi = fmod((720 - yaw - azi_offset), 360);
+  delay(10);
 }
 
 void find_closest() {
@@ -304,21 +311,29 @@ void find_closest() {
 
 void print_screen1() {
   lcd.clear();
-  lcd.print(closest_name);
-  lcd.setCursor(10, 0);
-  if (alt_dist > 1) { lcd.write((byte)0); }
-  else if (alt_dist < -1){ lcd.write(1); }
-  else { lcd.write(42); }
-  lcd.setCursor(14, 0);
-  if (azi_dist > 1) { lcd.write(126); }
-  else if (azi_dist < -1){ lcd.write(127); }
-  else { lcd.write(42); }
-  lcd.setCursor(0, 1); lcd.print(round(closest_dist));
-  lcd.setCursor(2, 1); lcd.write(223);
-  lcd.setCursor(4, 1); lcd.print("from");
-  lcd.setCursor(9, 1); lcd.print(round(alt));
-  lcd.setCursor(12, 1); lcd.print(",");
-  lcd.setCursor(13, 1); lcd.print(round(azi));
+  lcd.print(round(closest_dist)); lcd.write(223); lcd.print(" away from");
+  lcd.setCursor(0, 1); lcd.print(closest_name);
+  
+  if (alt_dist > 1) {
+    if (azi_dist > 1) { lcd.setCursor(15, 0); lcd.write(4); }
+    else if (azi_dist < -1) { lcd.setCursor(14, 0); lcd.write(3); }
+    else { lcd.setCursor(14, 0); lcd.write(1); lcd.write(1); }
+  } else if (alt_dist < -1) {
+    if (azi_dist > 1) { lcd.setCursor(15, 1); lcd.write(6); }
+    else if (azi_dist < -1) { lcd.setCursor(14, 1); lcd.write(5); }
+    else { lcd.setCursor(14, 1); lcd.write(2); lcd.write(2);}
+  } else {
+    if (azi_dist > 1) {
+      lcd.setCursor(15, 0); lcd.write(126);
+      lcd.setCursor(15, 1); lcd.write(126);
+    } else if (azi_dist < -1) {
+      lcd.setCursor(14, 0); lcd.write(127);
+      lcd.setCursor(14, 1); lcd.write(127);
+    } else {
+      lcd.setCursor(14, 0); lcd.print("**");
+      lcd.setCursor(14, 1); lcd.print("**");
+    }
+  }
 }
 
 void print_screen2() {
@@ -353,20 +368,32 @@ void setup()
   lcd.begin(16, 2);
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
-  lcd.createChar(0, up_char);
-  lcd.createChar(1, down_char);
+  lcd.createChar(1, up_char);
+  lcd.createChar(2, down_char);
+  lcd.createChar(3, up_left_char);
+  lcd.createChar(4, up_right_char);
+  lcd.createChar(5, down_left_char);
+  lcd.createChar(6, down_right_char);
+
+  lcd.setCursor(0, 0); lcd.print("* LASER GAZER *");
+  lcd.setCursor(0, 1);
+  for (int i = 0; i < 16; i++) {
+    lcd.print("*");
+    for (int j = 0; j < 100; j ++) {get_orientation();}
+  }
+  lcd.setCursor(0, 0); lcd.print("Point at Polaris");
+  lcd.setCursor(0, 1); lcd.print("and then press A");
+  while (digitalRead(button1) == LOW) { get_orientation(); }
+  calibrate();
 }
 
 void loop(void) {
   
   if (counter % 100 == 0) {
     if (counter % 18000 == 0) { update_coords(); }  // Update coords about every 5 minutes
-    if (digitalRead(button1) == HIGH && digitalRead(button2) == HIGH) {
-      alt_offset = 0;
-      azi_offset = 0;
-    } else if (digitalRead(button2) == HIGH) {
+    if (digitalRead(button1) == HIGH) {
       calibrate();
-    } else if (digitalRead(button1) == HIGH) {
+    } else if (digitalRead(button2) == HIGH) {
       print_screen2();
     } else {
         find_closest();
@@ -377,5 +404,4 @@ void loop(void) {
   get_orientation();
 
   counter++;
-  delay(10);
 }
