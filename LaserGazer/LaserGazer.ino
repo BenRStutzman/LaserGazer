@@ -301,25 +301,28 @@ void find_closest() {
     if (dist < min_dist) {                                                  // set closest to this one if it's closer
       min_dist = dist;
       closest = i;
-      closest_dist = min_dist * r2d;                                    // convert to degrees
-      alt_dist = round(coords[i][0] - alt);
-      azi_dist = round(coords[i][1] - azi);
-      if (azi_dist > 180) { azi_dist -= 360; }
-      else if (azi_dist < -180) { azi_dist += 360; }
     }
   }
+  closest_dist = round(min_dist * r2d);
+  alt_dist = round(coords[closest][0] - alt);
+  azi_dist = round(coords[closest][1] - azi);
+  if (azi_dist > 180) { azi_dist -= 360; }
+  else if (azi_dist < -180) { azi_dist += 360; }
   get_name(closest);
 }
 
 void print_screen1() {
   lcd.clear();
-  if (round(closest_dist) < 10 ) { lcd.setCursor(1, 0); }
-  lcd.print(round(closest_dist)); lcd.write(223);
+  if (closest_dist < 10 ) { lcd.setCursor(1, 0); }
+  lcd.print(closest_dist, 0); lcd.write(223);
   lcd.setCursor(4, 0); lcd.print("away from");
   lcd.setCursor(6 - int(closest_name.length() - 1) / 2, 1);
   lcd.print(closest_name);
-  
-  if (alt_dist > 0) {
+
+  if (closest_dist == 0) {
+    lcd.setCursor(14, 0); lcd.print("**");
+    lcd.setCursor(14, 1); lcd.print("**");
+  } else if (alt_dist > 0) {
     if (azi_dist > 0) { lcd.setCursor(15, 0); lcd.write(4); }
     else if (azi_dist < 0) { lcd.setCursor(14, 0); lcd.write(3); }
     else { lcd.setCursor(14, 0); lcd.write(1); lcd.write(1); }
@@ -331,12 +334,9 @@ void print_screen1() {
     if (azi_dist > 0) {
       lcd.setCursor(15, 0); lcd.write(126);
       lcd.setCursor(15, 1); lcd.write(126);
-    } else if (azi_dist < 0) {
+    } else {
       lcd.setCursor(14, 0); lcd.write(127);
       lcd.setCursor(14, 1); lcd.write(127);
-    } else {
-      lcd.setCursor(14, 0); lcd.print("**");
-      lcd.setCursor(14, 1); lcd.print("**");
     }
   }
 }
