@@ -21,13 +21,15 @@ const byte down_left_char[8] = {1, 18, 20, 24, 30, 0, 0, 0};
 const byte down_right_char[8] = {16, 9, 5, 3, 15, 0, 0, 0};
 const byte months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+byte row;
+byte col;
+int alt_dist, azi_dist;
 float sidereal;
 float d;
 float orbs[5][6]; // N, i, w, M, e, a
 float coords[num_bodies][2];
 float pitch, yaw, alt, azi;
 float alt_offset, azi_offset;
-float alt_dist, azi_dist;
 float x, y, z, mx, my, mz, gx, gy, gz;
 float closest_dist;
 unsigned long counter;
@@ -300,8 +302,8 @@ void find_closest() {
       min_dist = dist;
       closest = i;
       closest_dist = min_dist * r2d;                                    // convert to degrees
-      alt_dist = coords[i][0] - alt;
-      azi_dist = coords[i][1] - azi;
+      alt_dist = round(coords[i][0] - alt);
+      azi_dist = round(coords[i][1] - azi);
       if (azi_dist > 180) { azi_dist -= 360; }
       else if (azi_dist < -180) { azi_dist += 360; }
     }
@@ -311,22 +313,25 @@ void find_closest() {
 
 void print_screen1() {
   lcd.clear();
-  lcd.print(round(closest_dist)); lcd.write(223); lcd.print(" away from");
-  lcd.setCursor(0, 1); lcd.print(closest_name);
+  if (round(closest_dist) < 10 ) { lcd.setCursor(1, 0); }
+  lcd.print(round(closest_dist)); lcd.write(223);
+  lcd.setCursor(4, 0); lcd.print("away from");
+  lcd.setCursor(6 - int(closest_name.length() - 1) / 2, 1);
+  lcd.print(closest_name);
   
-  if (alt_dist > 1) {
-    if (azi_dist > 1) { lcd.setCursor(15, 0); lcd.write(4); }
-    else if (azi_dist < -1) { lcd.setCursor(14, 0); lcd.write(3); }
+  if (alt_dist > 0) {
+    if (azi_dist > 0) { lcd.setCursor(15, 0); lcd.write(4); }
+    else if (azi_dist < 0) { lcd.setCursor(14, 0); lcd.write(3); }
     else { lcd.setCursor(14, 0); lcd.write(1); lcd.write(1); }
-  } else if (alt_dist < -1) {
-    if (azi_dist > 1) { lcd.setCursor(15, 1); lcd.write(6); }
-    else if (azi_dist < -1) { lcd.setCursor(14, 1); lcd.write(5); }
+  } else if (alt_dist < 0) {
+    if (azi_dist > 0) { lcd.setCursor(15, 1); lcd.write(6); }
+    else if (azi_dist < 0) { lcd.setCursor(14, 1); lcd.write(5); }
     else { lcd.setCursor(14, 1); lcd.write(2); lcd.write(2);}
   } else {
-    if (azi_dist > 1) {
+    if (azi_dist > 0) {
       lcd.setCursor(15, 0); lcd.write(126);
       lcd.setCursor(15, 1); lcd.write(126);
-    } else if (azi_dist < -1) {
+    } else if (azi_dist < 0) {
       lcd.setCursor(14, 0); lcd.write(127);
       lcd.setCursor(14, 1); lcd.write(127);
     } else {
@@ -339,12 +344,23 @@ void print_screen1() {
 void print_screen2() {
   lcd.clear();
   lcd.print(now.year()); lcd.print("-");
+  if (now.month() < 10) { lcd.print(0); }
   lcd.print(now.month()); lcd.print("-");
+  if (now.day() < 10) { lcd.print(0); }
   lcd.print(now.day()); lcd.print(" ");
+  if (now.hour() < 10) { lcd.print(0); }
   lcd.print(now.hour()); lcd.print(":");
+  if (now.minute() < 10) { lcd.print(0); }
   lcd.print(now.minute());
-  lcd.setCursor(0, 1); lcd.print(alt_offset);
-  lcd.setCursor(8, 1); lcd.print(azi_offset);
+  lcd.setCursor(0, 1);
+  if (lat < 0) {
+    lcd.print(-lat); lcd.write(223); lcd.print("S");
+  } else { lcd.print(lat); lcd.write(223); lcd.print("N"); }
+  if (abs(lon) < 100) { lcd.setCursor(9, 1); } else { lcd.setCursor(8, 1); }
+  if (lon < 0) {
+    lcd.print(-lon); lcd.write(223); lcd.print("W");
+  } else { lcd.print(lon); lcd.write(223); lcd.print("E"); }
+
 }
 
 void calibrate(){
@@ -359,8 +375,7 @@ void update_coords() {
   calc_coords();
 }
 
-void setup()
-{
+void setup() {
   gyro.begin();
   accelmag.begin();
   rtc.begin();
@@ -375,12 +390,17 @@ void setup()
   lcd.createChar(5, down_left_char);
   lcd.createChar(6, down_right_char);
 
-  lcd.setCursor(0, 0); lcd.print("* LASER GAZER *");
-  lcd.setCursor(0, 1);
-  for (int i = 0; i < 16; i++) {
-    lcd.print("*");
-    for (int j = 0; j < 100; j ++) {get_orientation();}
+  lcd.setCursor(5, 0); lcd.print("LASER");
+  lcd.setCursor(6, 1); lcd.print("GAZER");
+  delay(1000);
+  randomSeed(analogRead(0));
+  for (int i = 0; i < 150; i ++) {
+    row = random(0, 2);
+    col = random(0, 16);
+    lcd.setCursor(col, row); lcd.print("*");
+    for (byte j = 0; j < 5; j++) {get_orientation(); }
   }
+  
   lcd.setCursor(0, 0); lcd.print("Point at Polaris");
   lcd.setCursor(0, 1); lcd.print("and then press A");
   while (digitalRead(button1) == LOW) { get_orientation(); }
