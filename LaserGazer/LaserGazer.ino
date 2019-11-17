@@ -1,16 +1,17 @@
 #include <Wire.h>
+#include <LiquidCrystal.h>
 #include <Adafruit_Sensor.h>
 #include <Madgwick.h>
 #include <Adafruit_FXAS21002C.h>
 #include <Adafruit_FXOS8700.h>
-#include <LiquidCrystal.h>
 #include "RTClib.h"
+
+//Set your coordinates here:
 
 const float lat = 38.4714, lon = -78.8824; // EMU Hill
 //const float lat = 40.0424, lon = -76.3165; // Pine St. Backyard
 //const float lat = 39.8441, lon = -76.2867; // Muddy Run Observatory
 
-const float r2d = 57.2958;
 const byte num_bodies = 40;
 const byte button1 = 13, button2 = 12;
 const byte up_char[8] = {0, 0, 4, 14, 21, 4, 4, 0};
@@ -20,6 +21,7 @@ const byte up_right_char[8] = {0, 0, 0, 15, 3, 5, 9, 16};
 const byte down_left_char[8] = {1, 18, 20, 24, 30, 0, 0, 0};
 const byte down_right_char[8] = {16, 9, 5, 3, 15, 0, 0, 0};
 const byte months[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+const float r2d = 57.2958;
 
 byte row;
 byte col;
@@ -43,8 +45,9 @@ Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
 Madgwick filter;
 
-// Mag calibration values are calculated via ahrs_calibration.
-// These values must be determined for each baord/environment.
+// To recalibrate, run ahrs_calibration on the Arduino
+// and the MotionCal app on the computer, spin it around a bunch,
+// and enter the magnetic offset values below.
 // Last calibrated: 10/23/19 on the EMU Hill
 
 // Offsets applied to raw x/y/z mag values
@@ -59,6 +62,9 @@ float mag_softiron_matrix[3][3] = { {  1.012,  0.008,  -0.009 },
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
 float gyro_zero_offsets[3]      = { 0.02, 0.00, 0.02 };
 
+
+// For getting the name of each planet/star;
+// A list didn't work for some reason
 void get_name(byte i) {
   switch (i) {
     case 0: closest_name = "Mercury";         break;
@@ -71,11 +77,11 @@ void get_name(byte i) {
     case 7: closest_name = "Vega";            break;
     case 8: closest_name = "Capella";         break;
     case 9: closest_name = "Rigel";           break;
-    case 10: closest_name = "Procyon";         break;
-    case 11: closest_name = "Betelgeuse";      break;
-    case 12: closest_name = "Altair";          break;
-    case 13: closest_name = "Aldebaran";       break;
-    case 14: closest_name = "Antares";         break;
+    case 10: closest_name = "Procyon";        break;
+    case 11: closest_name = "Betelgeuse";     break;
+    case 12: closest_name = "Altair";         break;
+    case 13: closest_name = "Aldebaran";      break;
+    case 14: closest_name = "Antares";        break;
     case 15: closest_name = "Spica";          break;
     case 16: closest_name = "Pollux";         break;
     case 17: closest_name = "Fomalhaut";      break;
@@ -104,6 +110,7 @@ void get_name(byte i) {
   }
 }
 
+//Celestial coordinates of each body (which don't change for stars)
 float celes[num_bodies][2] = {  {0, 0},
                                 {0, 0},
                                 {0, 0},
@@ -146,22 +153,25 @@ float celes[num_bodies][2] = {  {0, 0},
                                 {31.7934, 0.4095}
                                 };
 
+
 void calc_sidereal() {
+  // calculates the current sidereal time
   // formula from https://aa.usno.navy.mil/faq/docs/GAST.php
 
-  d = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;               // days in full years since 1/1/19
+  d = (now.year() - 2019) * 365 + (now.year() - 2017) / 4;         // days in full years since 1/1/19
   for (byte i = 0; i < now.month() - 1; i++) {
-    d += months[i];  // add days in full months
+    d += months[i];                                                // add days in full months
   }
   if (now.month() > 2 && now.year() % 4 == 0) {
-    d += 1;  // add day from a leap year
+    d += 1;                                                        // add day from a leap year
   }
-  d += (now.day() - 1) + now.hour() / 24.0 + now.minute() / 1440.0;                  // add days from this month
+  d += (now.day() - 1) + now.hour() / 24.0 + now.minute() / 1440.0;// add days from this month
   sidereal = fmod(6.6907 + 24.0657 * d, 24);                       // sidereal time in hours
   d += 6941;
 }
-
+ 
 void calc_planets(){
+  // calculates the celestial coordinates of the planets
   // formulae from https://stjarnhimlen.se/comp/ppcomp.html
   
   orbs[0][0] = 48.3313 + 3.24587E-5 * d;
@@ -237,18 +247,34 @@ void calc_planets(){
 }
 
 void calc_coords() {
+  // calculates the current topocentric (land-based) coordinates of each
+  // body from the celestial coordinates 
   // formulae from https://aa.usno.navy.mil/faq/docs/Alt_Az.php
 
   for (byte i = 0; i < num_bodies; i++) {
-    float LHA = (sidereal * 15 - celes[i][0] + lon) / r2d;                // local hour angle
+    float LHA = (sidereal * 15 - celes[i][0] + lon) / r2d;                                                        // local hour angle
     
     coords[i][0] = asin(cos(LHA) * cos(celes[i][1]) * cos(lat / r2d) + sin(celes[i][1]) * sin(lat / r2d)) * r2d;  // altitude of the body
-    coords[i][1] = fmod(atan2(-sin(LHA), tan(celes[i][1]) * cos(lat / r2d) - sin(lat / r2d) * cos(LHA))       // azimuth of the body
+    coords[i][1] = fmod(atan2(-sin(LHA), tan(celes[i][1]) * cos(lat / r2d) - sin(lat / r2d) * cos(LHA))           // azimuth of the body
                         * r2d + 360, 360);
   }
 }
 
+void update_coords() {
+  // re-calculates the topocentric coordinates of everything
+  // (this is used once every 5 minutes to keep up with the rotating earth)
+  
+  now = rtc.now(); // Get the new current time from the clock
+  calc_sidereal();
+  calc_planets();
+  calc_coords();
+}
+
 void get_orientation() {
+  // From the Arduino AHRS example sketch
+  // Uses a Madgwick filter to make the orientation more accurate
+  // with the accelerometer (senses gravity) and magnetometer (senses North).
+  
   sensors_event_t gyro_event;
   sensors_event_t accel_event;
   sensors_event_t mag_event;
@@ -289,8 +315,20 @@ void get_orientation() {
   delay(10);
 }
 
+void calibrate(){
+  // Recenters the coordinate system based on Polaris, so you can
+  // adjust for it not being at magnetic north
+  // (this is used when you press "A")
+  
+  alt_offset = lat - pitch;
+  azi_offset = fmod(-yaw, 360);
+}
+
 void find_closest() {
-  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html                     // convert to radians
+  // From the topocentric coordinates and the current orientation,
+  // calculates which body you're closest to pointing at.
+  // formula from http://spiff.rit.edu/classes/phys373/lectures/radec/radec.html
+  
   float min_dist = 4;                              // reset min_dist
   byte closest;
   
@@ -298,7 +336,7 @@ void find_closest() {
     float dist = acos(cos(1.5708 - alt / r2d) * cos(1.5708 - coords[i][0] / r2d) +  // angular distance
                       sin(1.5708 - alt / r2d) * sin(1.5708 - coords[i][0] / r2d) *
                       cos(azi / r2d - coords[i][1] / r2d));
-    if (dist < min_dist) {                                                  // set closest to this one if it's closer
+    if (dist < min_dist) {                                                          // set closest to this one if it's closer
       min_dist = dist;
       closest = i;
     }
@@ -312,6 +350,9 @@ void find_closest() {
 }
 
 void print_screen1() {
+  // Prints the main screen which tells you which star/planet is closest,
+  // how many degrees away it is, and which way to adjust to get closer.
+  
   lcd.clear();
   if (closest_dist < 10 ) { lcd.setCursor(1, 0); }
   lcd.print(closest_dist, 0); lcd.write(223);
@@ -342,6 +383,10 @@ void print_screen1() {
 }
 
 void print_screen2() {
+  // Prints the "B" screen which tells you the current time (UTC)
+  // and geographic coordinates (latitude and longitude), so you can
+  // check that these are both working correctly.
+  
   lcd.clear();
   lcd.print(now.year()); lcd.print("-");
   if (now.month() < 10) { lcd.print(0); }
@@ -363,26 +408,18 @@ void print_screen2() {
 
 }
 
-void calibrate(){
-  alt_offset = lat - pitch;
-  azi_offset = fmod(-yaw, 360);
-}
-
-void update_coords() {
-  now = rtc.now();
-  calc_sidereal();
-  calc_planets();
-  calc_coords();
-}
-
 void setup() {
+
+  // Initialize the sensors, filter, clock, and LCD
   gyro.begin();
   accelmag.begin();
-  rtc.begin();
   filter.begin(60); // filter rate in samples/second
+  rtc.begin();
   lcd.begin(16, 2);
   pinMode(button1, INPUT);
   pinMode(button2, INPUT);
+
+  // Create six new arrow characters for the LCD to show directions
   lcd.createChar(1, up_char);
   lcd.createChar(2, down_char);
   lcd.createChar(3, up_left_char);
@@ -390,6 +427,8 @@ void setup() {
   lcd.createChar(5, down_left_char);
   lcd.createChar(6, down_right_char);
 
+  // Print a little fancy intro:
+  // Makes asterisks (read "stars") pup up at random
   lcd.setCursor(5, 0); lcd.print("LASER");
   lcd.setCursor(6, 1); lcd.print("GAZER");
   delay(1000);
@@ -400,7 +439,8 @@ void setup() {
     lcd.setCursor(col, row); lcd.print("*");
     for (byte j = 0; j < 5; j++) {get_orientation(); }
   }
-  
+
+  // Wait for the user to calibrate it by pointing at the north star
   lcd.setCursor(0, 0); lcd.print("Point at Polaris");
   lcd.setCursor(0, 1); lcd.print("and then press A");
   while (digitalRead(button1) == LOW) { get_orientation(); }
@@ -408,20 +448,23 @@ void setup() {
 }
 
 void loop(void) {
-  
+
+  get_orientation(); // Constantly read new orientation
+
+  // One out of every 100 cycles, do some more heavy calculations
   if (counter % 100 == 0) {
-    if (counter % 18000 == 0) { update_coords(); }  // Update coords about every 5 minutes
+    if (counter % 18000 == 0) {                     // Update coords about every 5 minutes
+      update_coords();
+    }  
     if (digitalRead(button1) == HIGH) {
-      calibrate();
+      calibrate();                                  // If "A" is pressed, recalibrate
     } else if (digitalRead(button2) == HIGH) {
-      print_screen2();
+      print_screen2();                              // If "B" is pressed, show screen 2 (time and geo coords)
     } else {
-        find_closest();
-        print_screen1();
+        find_closest();                             // Otherwise, calculate the closest star/planet
+        print_screen1();                            // and display the default screen
     }
   }
-
-  get_orientation();
 
   counter++;
 }
