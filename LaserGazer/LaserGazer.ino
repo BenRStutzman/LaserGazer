@@ -11,6 +11,7 @@
 const float lat = 38.4714, lon = -78.8824; // EMU Hill
 //const float lat = 40.0424, lon = -76.3165; // Pine St. Backyard
 //const float lat = 39.8441, lon = -76.2867; // Muddy Run Observatory
+//const float lat = 37.4263, lon =  -81.5083; // Kimball, WV
 
 const byte num_bodies = 40;
 const byte button1 = 13, button2 = 12;
