@@ -1,6 +1,6 @@
 # laser-gazer
 Identifies stars you point at with a laser pointer (Honors Capstone project)
-![alt text](https://raw.githubusercontent.com/BenRStutzman/laser-gazer/master/Pictures/Laser Gazer Layout(1).jpg)
+![alt text]("https://raw.githubusercontent.com/BenRStutzman/laser-gazer/master/Pictures/Laser Gazer Layout(1).jpg")
 <br><br>
 ![alt text](https://raw.githubusercontent.com/BenRStutzman/laser-gazer/master/Pictures/20191120_203152.jpg)
 <br><br>
